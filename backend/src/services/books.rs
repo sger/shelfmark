@@ -31,27 +31,28 @@ pub fn detect_format(filename: &str, content_type: Option<&str>) -> AppResult<&'
 }
 
 pub async fn create_job(db: &PgPool, kind: &str, library_id: Option<Uuid>, message: Option<&str>) -> AppResult<ImportJob> {
-    let job = sqlx::query_as::<_, ImportJob>(
+    let job = sqlx::query_as!(
+        ImportJob,
         "INSERT INTO import_jobs (kind, status, library_id, message)
          VALUES ($1, 'queued', $2, $3)
          RETURNING id, kind, status, message, library_id, book_id, created_at, updated_at",
+        kind,
+        library_id,
+        message,
     )
-    .bind(kind)
-    .bind(library_id)
-    .bind(message)
     .fetch_one(db)
     .await?;
     Ok(job)
 }
 
 pub async fn finish_job(db: &PgPool, job_id: Uuid, status: &str, message: Option<&str>, book_id: Option<Uuid>) -> AppResult<()> {
-    sqlx::query(
+    sqlx::query!(
         "UPDATE import_jobs SET status = $1, message = $2, book_id = $3, updated_at = now() WHERE id = $4",
+        status,
+        message,
+        book_id,
+        job_id,
     )
-    .bind(status)
-    .bind(message)
-    .bind(book_id)
-    .bind(job_id)
     .execute(db)
     .await?;
     Ok(())
@@ -80,28 +81,30 @@ pub async fn import_file(
     let title = title_from_filename(original_name);
     let mut tx = state.db.begin().await?;
 
-    let book = sqlx::query_as::<_, Book>(
+    let book = sqlx::query_as!(
+        Book,
         "INSERT INTO books (id, library_id, title)
          VALUES ($1, $2, $3)
          RETURNING id, library_id, title, authors, description, publisher, published_date, language, page_count, cover_path, created_at, updated_at",
+        book_id,
+        library_id,
+        title,
     )
-    .bind(book_id)
-    .bind(library_id)
-    .bind(title)
     .fetch_one(&mut *tx)
     .await?;
 
-    let book_file = sqlx::query_as::<_, BookFile>(
+    let book_file = sqlx::query_as!(
+        BookFile,
         "INSERT INTO book_files (book_id, original_name, stored_path, format, size_bytes, content_type)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, book_id, original_name, stored_path, format, size_bytes, content_type, created_at",
+        book.id,
+        original_name,
+        relative_path,
+        format,
+        bytes.len() as i64,
+        content_type,
     )
-    .bind(book.id)
-    .bind(original_name)
-    .bind(relative_path)
-    .bind(format)
-    .bind(bytes.len() as i64)
-    .bind(content_type)
     .fetch_one(&mut *tx)
     .await?;
 

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT a AS \"value!\", count(*) AS \"count!\" FROM books b CROSS JOIN unnest(b.authors) a WHERE a <> '' GROUP BY a ORDER BY lower(a) LIMIT 50",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "value!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "1093844e198f481361767b4f1234406765f573ab441bb4818d5fcdb8476416e4"
+}

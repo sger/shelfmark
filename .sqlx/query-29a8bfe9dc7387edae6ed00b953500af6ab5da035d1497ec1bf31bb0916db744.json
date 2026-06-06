@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO book_user_state (user_id, book_id, favorite, reading_status, status_overridden)\n         VALUES ($1, $2, $3, $4, true)\n         ON CONFLICT (user_id, book_id)\n         DO UPDATE SET favorite = excluded.favorite, reading_status = excluded.reading_status,\n                       status_overridden = true, updated_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "29a8bfe9dc7387edae6ed00b953500af6ab5da035d1497ec1bf31bb0916db744"
+}

@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.user_id, s.book_id, s.favorite, s.reading_status,\n                COALESCE(array_agg(t.name ORDER BY lower(t.name)) FILTER (WHERE t.name IS NOT NULL), '{}') AS \"tags!\",\n                s.updated_at\n         FROM book_user_state s\n         LEFT JOIN book_tags bt ON bt.user_id = s.user_id AND bt.book_id = s.book_id\n         LEFT JOIN tags t ON t.id = bt.tag_id\n         WHERE s.user_id = $1 AND s.book_id = $2\n         GROUP BY s.user_id, s.book_id, s.favorite, s.reading_status, s.updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "book_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "favorite",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "reading_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "tags!",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "351ed566c626e6ed7b558becfc9cb9cceb02d71f736d85ea05a502766f86a9c5"
+}

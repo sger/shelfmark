@@ -54,18 +54,19 @@ pub async fn list_books(db: &PgPool, user_id: Uuid, filters: BookFilters) -> App
 
 pub async fn get_book_state(db: &PgPool, user_id: Uuid, book_id: Uuid) -> AppResult<BookUserState> {
     ensure_state(db, user_id, book_id).await?;
-    Ok(sqlx::query_as::<_, BookUserState>(
-        "SELECT s.user_id, s.book_id, s.favorite, s.reading_status,
-                COALESCE(array_agg(t.name ORDER BY lower(t.name)) FILTER (WHERE t.name IS NOT NULL), '{}') AS tags,
+    Ok(sqlx::query_as!(
+        BookUserState,
+        r#"SELECT s.user_id, s.book_id, s.favorite, s.reading_status,
+                COALESCE(array_agg(t.name ORDER BY lower(t.name)) FILTER (WHERE t.name IS NOT NULL), '{}') AS "tags!",
                 s.updated_at
          FROM book_user_state s
          LEFT JOIN book_tags bt ON bt.user_id = s.user_id AND bt.book_id = s.book_id
          LEFT JOIN tags t ON t.id = bt.tag_id
          WHERE s.user_id = $1 AND s.book_id = $2
-         GROUP BY s.user_id, s.book_id, s.favorite, s.reading_status, s.updated_at",
+         GROUP BY s.user_id, s.book_id, s.favorite, s.reading_status, s.updated_at"#,
+        user_id,
+        book_id,
     )
-    .bind(user_id)
-    .bind(book_id)
     .fetch_one(db)
     .await?)
 }
@@ -77,45 +78,47 @@ pub async fn update_book_state(db: &PgPool, user_id: Uuid, book_id: Uuid, input:
     validate_status(&reading_status)?;
 
     let mut tx = db.begin().await?;
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO book_user_state (user_id, book_id, favorite, reading_status, status_overridden)
          VALUES ($1, $2, $3, $4, true)
          ON CONFLICT (user_id, book_id)
          DO UPDATE SET favorite = excluded.favorite, reading_status = excluded.reading_status,
                        status_overridden = true, updated_at = now()",
+        user_id,
+        book_id,
+        favorite,
+        reading_status,
     )
-    .bind(user_id)
-    .bind(book_id)
-    .bind(favorite)
-    .bind(&reading_status)
     .execute(&mut *tx)
     .await?;
 
     if let Some(tags) = input.tags {
-        sqlx::query("DELETE FROM book_tags WHERE user_id = $1 AND book_id = $2")
-            .bind(user_id)
-            .bind(book_id)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query!(
+            "DELETE FROM book_tags WHERE user_id = $1 AND book_id = $2",
+            user_id,
+            book_id,
+        )
+        .execute(&mut *tx)
+        .await?;
 
         for tag in normalize_tags(tags) {
-            let tag_id: Uuid = sqlx::query_scalar(
+            let tag_id: Uuid = sqlx::query_scalar!(
                 "INSERT INTO tags (user_id, name) VALUES ($1, $2)
                  ON CONFLICT (user_id, lower(name)) DO UPDATE SET name = excluded.name
                  RETURNING id",
+                user_id,
+                tag,
             )
-            .bind(user_id)
-            .bind(&tag)
             .fetch_one(&mut *tx)
             .await?;
 
-            sqlx::query(
+            sqlx::query!(
                 "INSERT INTO book_tags (user_id, book_id, tag_id) VALUES ($1, $2, $3)
                  ON CONFLICT DO NOTHING",
+                user_id,
+                book_id,
+                tag_id,
             )
-            .bind(user_id)
-            .bind(book_id)
-            .bind(tag_id)
             .execute(&mut *tx)
             .await?;
         }
@@ -127,7 +130,7 @@ pub async fn update_book_state(db: &PgPool, user_id: Uuid, book_id: Uuid, input:
 
 pub async fn derive_reading_status(db: &PgPool, user_id: Uuid, book_id: Uuid, progress_percent: f64) -> AppResult<()> {
     let derived = if progress_percent > 0.0 { "reading" } else { "unread" };
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO book_user_state (user_id, book_id, reading_status, status_overridden)
          VALUES ($1, $2, $3, false)
          ON CONFLICT (user_id, book_id)
@@ -139,10 +142,10 @@ pub async fn derive_reading_status(db: &PgPool, user_id: Uuid, book_id: Uuid, pr
                  WHEN book_user_state.status_overridden THEN book_user_state.updated_at
                  ELSE now()
                END",
+        user_id,
+        book_id,
+        derived,
     )
-    .bind(user_id)
-    .bind(book_id)
-    .bind(derived)
     .execute(db)
     .await?;
     Ok(())
@@ -174,11 +177,12 @@ pub async fn list_shelves(db: &PgPool, user_id: Uuid) -> AppResult<Vec<ShelfSumm
         }
     }
 
-    let custom = sqlx::query_as::<_, SmartShelf>(
-        "SELECT id, user_id, name, match_mode, rules, created_at, updated_at
-         FROM smart_shelves WHERE user_id = $1 ORDER BY updated_at DESC",
+    let custom = sqlx::query_as!(
+        SmartShelf,
+        r#"SELECT id, user_id, name, match_mode, rules AS "rules: serde_json::Value", created_at, updated_at
+         FROM smart_shelves WHERE user_id = $1 ORDER BY updated_at DESC"#,
+        user_id,
     )
-    .bind(user_id)
     .fetch_all(db)
     .await?;
 
@@ -202,15 +206,16 @@ pub async fn list_shelves(db: &PgPool, user_id: Uuid) -> AppResult<Vec<ShelfSumm
 pub async fn create_shelf(db: &PgPool, user_id: Uuid, input: CreateShelfRequest) -> AppResult<ShelfSummary> {
     validate_shelf_input(&input.name, &input.match_mode, &input.rules)?;
     let rules = serde_json::to_value(&input.rules).map_err(|err| AppError::Internal(anyhow::anyhow!(err)))?;
-    let shelf = sqlx::query_as::<_, SmartShelf>(
-        "INSERT INTO smart_shelves (user_id, name, match_mode, rules)
+    let shelf = sqlx::query_as!(
+        SmartShelf,
+        r#"INSERT INTO smart_shelves (user_id, name, match_mode, rules)
          VALUES ($1, $2, $3, $4)
-         RETURNING id, user_id, name, match_mode, rules, created_at, updated_at",
+         RETURNING id, user_id, name, match_mode, rules AS "rules: serde_json::Value", created_at, updated_at"#,
+        user_id,
+        input.name.trim(),
+        input.match_mode,
+        rules,
     )
-    .bind(user_id)
-    .bind(input.name.trim())
-    .bind(input.match_mode)
-    .bind(rules)
     .fetch_one(db)
     .await?;
     shelf_summary(db, user_id, shelf).await
@@ -223,27 +228,30 @@ pub async fn update_shelf(db: &PgPool, user_id: Uuid, id: Uuid, input: UpdateShe
     let match_mode = input.match_mode.unwrap_or(existing.match_mode);
     validate_shelf_input(&name, &match_mode, &rules)?;
     let rules_json = serde_json::to_value(&rules).map_err(|err| AppError::Internal(anyhow::anyhow!(err)))?;
-    let shelf = sqlx::query_as::<_, SmartShelf>(
-        "UPDATE smart_shelves SET name = $1, match_mode = $2, rules = $3, updated_at = now()
+    let shelf = sqlx::query_as!(
+        SmartShelf,
+        r#"UPDATE smart_shelves SET name = $1, match_mode = $2, rules = $3, updated_at = now()
          WHERE id = $4 AND user_id = $5
-         RETURNING id, user_id, name, match_mode, rules, created_at, updated_at",
+         RETURNING id, user_id, name, match_mode, rules AS "rules: serde_json::Value", created_at, updated_at"#,
+        name.trim(),
+        match_mode,
+        rules_json,
+        id,
+        user_id,
     )
-    .bind(name.trim())
-    .bind(match_mode)
-    .bind(rules_json)
-    .bind(id)
-    .bind(user_id)
     .fetch_one(db)
     .await?;
     shelf_summary(db, user_id, shelf).await
 }
 
 pub async fn delete_shelf(db: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<()> {
-    let result = sqlx::query("DELETE FROM smart_shelves WHERE id = $1 AND user_id = $2")
-        .bind(id)
-        .bind(user_id)
-        .execute(db)
-        .await?;
+    let result = sqlx::query!(
+        "DELETE FROM smart_shelves WHERE id = $1 AND user_id = $2",
+        id,
+        user_id,
+    )
+    .execute(db)
+    .await?;
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound);
     }
@@ -251,12 +259,12 @@ pub async fn delete_shelf(db: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<()>
 }
 
 async fn ensure_state(db: &PgPool, user_id: Uuid, book_id: Uuid) -> AppResult<()> {
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO book_user_state (user_id, book_id) VALUES ($1, $2)
          ON CONFLICT DO NOTHING",
+        user_id,
+        book_id,
     )
-    .bind(user_id)
-    .bind(book_id)
     .execute(db)
     .await?;
     Ok(())
@@ -445,26 +453,48 @@ fn validate_rule(rule: &ShelfRule) -> AppResult<()> {
     if rule.field == "reading_status" {
         validate_status(rule.value.as_str().unwrap_or_default())?;
     }
+    if rule.field == "created_date" || rule.field == "updated_date" {
+        validate_date(rule.value.as_str().unwrap_or_default())?;
+    }
+    Ok(())
+}
+
+/// Reject date rule values that Postgres would later choke on, so the user gets a
+/// 400 at shelf-creation time instead of a 500 when the shelf is queried.
+fn validate_date(value: &str) -> AppResult<()> {
+    let value = value.trim();
+    let valid = chrono::DateTime::parse_from_rfc3339(value).is_ok()
+        || chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok();
+    if !valid {
+        return Err(AppError::BadRequest(
+            "date rule value must be YYYY-MM-DD or an RFC3339 timestamp".to_string(),
+        ));
+    }
     Ok(())
 }
 
 async fn group_counts(db: &PgPool, user_id: Uuid, group: &str) -> AppResult<Vec<(String, i64)>> {
     let rows: Vec<(String, i64)> = match group {
-        "author" => sqlx::query_as("SELECT a AS value, count(*) AS count FROM books b CROSS JOIN unnest(b.authors) a WHERE a <> '' GROUP BY a ORDER BY lower(a) LIMIT 50").fetch_all(db).await?,
-        "language" => sqlx::query_as("SELECT language AS value, count(*) AS count FROM books WHERE language IS NOT NULL AND language <> '' GROUP BY language ORDER BY lower(language) LIMIT 50").fetch_all(db).await?,
-        "year" => sqlx::query_as("SELECT left(published_date, 4) AS value, count(*) AS count FROM books WHERE published_date IS NOT NULL AND length(published_date) >= 4 GROUP BY left(published_date, 4) ORDER BY left(published_date, 4) DESC LIMIT 50").fetch_all(db).await?,
-        "tag" => sqlx::query_as("SELECT t.name AS value, count(*) AS count FROM tags t JOIN book_tags bt ON bt.tag_id = t.id WHERE t.user_id = $1 AND bt.user_id = $1 GROUP BY t.name ORDER BY lower(t.name) LIMIT 50").bind(user_id).fetch_all(db).await?,
+        "author" => sqlx::query!(r#"SELECT a AS "value!", count(*) AS "count!" FROM books b CROSS JOIN unnest(b.authors) a WHERE a <> '' GROUP BY a ORDER BY lower(a) LIMIT 50"#)
+            .fetch_all(db).await?.into_iter().map(|r| (r.value, r.count)).collect(),
+        "language" => sqlx::query!(r#"SELECT language AS "value!", count(*) AS "count!" FROM books WHERE language IS NOT NULL AND language <> '' GROUP BY language ORDER BY lower(language) LIMIT 50"#)
+            .fetch_all(db).await?.into_iter().map(|r| (r.value, r.count)).collect(),
+        "year" => sqlx::query!(r#"SELECT left(published_date, 4) AS "value!", count(*) AS "count!" FROM books WHERE published_date IS NOT NULL AND length(published_date) >= 4 GROUP BY left(published_date, 4) ORDER BY left(published_date, 4) DESC LIMIT 50"#)
+            .fetch_all(db).await?.into_iter().map(|r| (r.value, r.count)).collect(),
+        "tag" => sqlx::query!(r#"SELECT t.name AS "value!", count(*) AS "count!" FROM tags t JOIN book_tags bt ON bt.tag_id = t.id WHERE t.user_id = $1 AND bt.user_id = $1 GROUP BY t.name ORDER BY lower(t.name) LIMIT 50"#, user_id)
+            .fetch_all(db).await?.into_iter().map(|r| (r.value, r.count)).collect(),
         _ => Vec::new(),
     };
     Ok(rows)
 }
 
 async fn find_smart_shelf(db: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<SmartShelf> {
-    sqlx::query_as::<_, SmartShelf>(
-        "SELECT id, user_id, name, match_mode, rules, created_at, updated_at FROM smart_shelves WHERE id = $1 AND user_id = $2",
+    sqlx::query_as!(
+        SmartShelf,
+        r#"SELECT id, user_id, name, match_mode, rules AS "rules: serde_json::Value", created_at, updated_at FROM smart_shelves WHERE id = $1 AND user_id = $2"#,
+        id,
+        user_id,
     )
-    .bind(id)
-    .bind(user_id)
     .fetch_optional(db)
     .await?
     .ok_or(AppError::NotFound)

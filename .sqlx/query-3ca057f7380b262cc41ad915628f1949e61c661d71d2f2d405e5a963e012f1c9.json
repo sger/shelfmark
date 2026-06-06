@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT t.name AS \"value!\", count(*) AS \"count!\" FROM tags t JOIN book_tags bt ON bt.tag_id = t.id WHERE t.user_id = $1 AND bt.user_id = $1 GROUP BY t.name ORDER BY lower(t.name) LIMIT 50",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "value!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "3ca057f7380b262cc41ad915628f1949e61c661d71d2f2d405e5a963e012f1c9"
+}

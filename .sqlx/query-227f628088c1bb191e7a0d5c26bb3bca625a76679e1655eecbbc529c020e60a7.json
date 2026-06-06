@@ -1,0 +1,55 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO reading_progress (user_id, book_id, position, progress_percent)\n         VALUES ($1, $2, $3, $4)\n         ON CONFLICT (user_id, book_id)\n         DO UPDATE SET position = excluded.position, progress_percent = excluded.progress_percent, updated_at = now()\n         RETURNING id, user_id, book_id, position, progress_percent, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "book_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "position",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "progress_percent",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "227f628088c1bb191e7a0d5c26bb3bca625a76679e1655eecbbc529c020e60a7"
+}

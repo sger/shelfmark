@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, book_id, original_name, stored_path, format, size_bytes, content_type, created_at\n         FROM book_files WHERE book_id = $1 ORDER BY created_at DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "book_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "original_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "stored_path",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "format",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "size_bytes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "content_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "70207b5d2fc04d433caf5d8bfebce674ddacfc946fa61ec6a0deb015ef705b6b"
+}

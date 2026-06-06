@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT left(published_date, 4) AS \"value!\", count(*) AS \"count!\" FROM books WHERE published_date IS NOT NULL AND length(published_date) >= 4 GROUP BY left(published_date, 4) ORDER BY left(published_date, 4) DESC LIMIT 50",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "value!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "ae7c02e266ebba0663a9d78e3d9fb198b0e3ccd8f6ffd803f1b86497192bcbfb"
+}

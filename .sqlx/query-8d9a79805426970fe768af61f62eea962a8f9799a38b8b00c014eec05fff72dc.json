@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT language AS \"value!\", count(*) AS \"count!\" FROM books WHERE language IS NOT NULL AND language <> '' GROUP BY language ORDER BY lower(language) LIMIT 50",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "value!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "8d9a79805426970fe768af61f62eea962a8f9799a38b8b00c014eec05fff72dc"
+}

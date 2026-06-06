@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO book_user_state (user_id, book_id, reading_status, status_overridden)\n         VALUES ($1, $2, $3, false)\n         ON CONFLICT (user_id, book_id)\n         DO UPDATE SET reading_status = CASE\n                 WHEN book_user_state.status_overridden THEN book_user_state.reading_status\n                 ELSE excluded.reading_status\n               END,\n               updated_at = CASE\n                 WHEN book_user_state.status_overridden THEN book_user_state.updated_at\n                 ELSE now()\n               END",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "115b4235c630226683ca102ce59b300d8739db8973f7c586a456fd8c542b8e53"
+}

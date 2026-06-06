@@ -4,7 +4,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use sqlx::Row;
 
 use crate::{
     error::{AppError, AppResult},
@@ -57,21 +56,21 @@ pub async fn register(State(state): State<AppState>, Json(input): Json<RegisterR
 
     let password_hash = auth_service::hash_password(&input.password)?;
     let mut tx = state.db.begin().await?;
-    let user_count: i64 = sqlx::query("SELECT COUNT(*) AS count FROM users")
+    let user_count: i64 = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "count!" FROM users"#)
         .fetch_one(&mut *tx)
-        .await?
-        .try_get("count")?;
+        .await?;
     let role = if user_count == 0 { "admin" } else { "user" };
 
-    let user = sqlx::query_as::<_, User>(
+    let user = sqlx::query_as!(
+        User,
         "INSERT INTO users (email, password_hash, display_name, role)
          VALUES ($1, $2, $3, $4)
          RETURNING id, email, display_name, role, created_at",
+        email,
+        password_hash,
+        input.display_name.trim(),
+        role,
     )
-    .bind(email)
-    .bind(password_hash)
-    .bind(input.display_name.trim())
-    .bind(role)
     .fetch_one(&mut *tx)
     .await
     .map_err(map_registration_error)?;
@@ -93,25 +92,24 @@ fn map_registration_error(error: sqlx::Error) -> AppError {
 #[utoipa::path(post, path = "/api/v1/auth/login", request_body = LoginRequest, responses((status = 200, body = AuthResponse)), tag = "auth")]
 pub async fn login(State(state): State<AppState>, Json(input): Json<LoginRequest>) -> AppResult<Json<AuthResponse>> {
     let email = auth_service::normalize_email(&input.email);
-    let row = sqlx::query(
+    let row = sqlx::query!(
         "SELECT id, email, password_hash, display_name, role, created_at FROM users WHERE email = $1",
+        email,
     )
-    .bind(email)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::Unauthorized)?;
 
-    let password_hash: String = row.try_get("password_hash")?;
-    if !auth_service::verify_password(&input.password, &password_hash)? {
+    if !auth_service::verify_password(&input.password, &row.password_hash)? {
         return Err(AppError::Unauthorized);
     }
 
     let user = User {
-        id: row.try_get("id")?,
-        email: row.try_get("email")?,
-        display_name: row.try_get("display_name")?,
-        role: row.try_get("role")?,
-        created_at: row.try_get("created_at")?,
+        id: row.id,
+        email: row.email,
+        display_name: row.display_name,
+        role: row.role,
+        created_at: row.created_at,
     };
     let token = auth_service::issue_token(&state, &user)?;
     Ok(Json(AuthResponse { token, user }))

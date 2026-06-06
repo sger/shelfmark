@@ -53,10 +53,11 @@ pub fn decode_token(state: &AppState, token: &str) -> AppResult<Claims> {
 }
 
 pub async fn get_user(db: &sqlx::PgPool, id: Uuid) -> AppResult<User> {
-    sqlx::query_as::<_, User>(
+    sqlx::query_as!(
+        User,
         "SELECT id, email, display_name, role, created_at FROM users WHERE id = $1",
+        id,
     )
-    .bind(id)
     .fetch_optional(db)
     .await?
     .ok_or(AppError::Unauthorized)

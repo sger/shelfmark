@@ -7,8 +7,12 @@ RUN npm run build
 
 FROM public.ecr.aws/docker/library/rust:1-bookworm AS backend
 ENV CARGO_BUILD_JOBS=1
+# Build the sqlx query!/query_as! macros against the committed offline cache
+# (.sqlx) instead of a live database, which isn't available during the build.
+ENV SQLX_OFFLINE=true
 WORKDIR /app
-COPY Cargo.toml ./
+COPY Cargo.toml Cargo.lock ./
+COPY .sqlx ./.sqlx
 COPY backend ./backend
 RUN cargo build --release -p shelfmark-backend
 

@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE books\n         SET title = $1, authors = $2, description = $3, publisher = $4, published_date = $5,\n             language = $6, page_count = $7, updated_at = now()\n         WHERE id = $8\n         RETURNING id, library_id, title, authors, description, publisher, published_date, language, page_count, cover_path, created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "library_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "authors",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "publisher",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "published_date",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "language",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "page_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "cover_path",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "653a0e88c74d69bb7bce36338c7e6467c472cf58560d40a87c4352a4359e0804"
+}
