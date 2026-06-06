@@ -1,0 +1,9 @@
+.git
+target
+backend/target
+frontend/node_modules
+frontend/dist
+storage
+.env
+.DS_Store
+

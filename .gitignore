@@ -1,0 +1,9 @@
+target/
+node_modules/
+dist/
+.env
+.DS_Store
+storage/data/books/
+storage/data/covers/
+storage/postgres/
+

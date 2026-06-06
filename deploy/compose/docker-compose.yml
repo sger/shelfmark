@@ -1,0 +1,57 @@
+name: shelfmark
+
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-library}
+      POSTGRES_USER: ${POSTGRES_USER:-library}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-library}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ../../storage/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-library} -d ${POSTGRES_DB:-library}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-library}:${POSTGRES_PASSWORD:-library}@postgres:5432/${POSTGRES_DB:-library}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      STORAGE_DIR: /app/data
+      STATIC_DIR: /app/static
+      ALLOWED_ORIGINS: http://localhost:${FRONTEND_PORT:-5173}
+      BIND_ADDR: 0.0.0.0:6060
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-6060}:6060"
+    volumes:
+      - ../../storage/data:/app/data
+      - ../../storage/books:/books
+      - ../../storage/bookdrop:/bookdrop
+
+  frontend:
+    image: public.ecr.aws/docker/library/node:23-alpine
+    working_dir: /app/frontend
+    command: sh -c "npm install && npm run dev"
+    environment:
+      NODE_ENV: development
+      VITE_API_PROXY_TARGET: http://backend:6060
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ../../frontend:/app/frontend
+      - frontend_node_modules:/app/frontend/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  frontend_node_modules:
